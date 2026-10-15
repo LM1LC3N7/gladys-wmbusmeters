@@ -60,6 +60,24 @@ default of the "edge" Home Assistant add-on). An alarm never announced appears
 the first time it is seen. Flags about the past (`PREV_LEAKAGE`,
 `..._PREV_MONTH`…) are not alarms: they stay in the status text.
 
+### What about the Home Assistant discovery of the Gladys MQTT integration?
+
+Since Gladys 4.86, the Gladys MQTT integration (**Discovery** tab) reads the
+Home Assistant discovery. wmbusmeters itself publishes none: only its Home
+Assistant add-on does, when you turn on `enable_mqtt_discovery`. With the
+add-on, that is an alternative without this integration, but a partial one:
+energy, power, temperatures, battery and signal come through well; volumes
+(m³) and flows (m³/h) arrive as generic sensors without unit; and the alarms
+of the add-on (one sensor per flag, disabled by default) rely on a Jinja
+template Gladys does not run, so they never turn on.
+
+This integration reads the JSON of wmbusmeters directly, with or without the
+add-on and without any discovery: volume and energy as indexes, leak, burst,
+dry meter, backflow, tamper and battery alarms, the diagnosis of encrypted
+meters without their key (very common in France), and the warning for a
+silent meter. Use only one of the two ways for a given meter, or it shows up
+twice.
+
 ## 1. The receiver
 
 - An **RTL-SDR dongle** (RTL-SDR Blog V3 or V4, Nooelec…, about 25 €): the
@@ -126,9 +144,9 @@ in `/etc/wmbusmeters.conf`, the meter files in `/etc/wmbusmeters.d/`,
 The add-on already publishes each reading to `wmbusmeters/<meter name>`, on
 the Mosquitto broker of Home Assistant: give the integration the IP address of
 Home Assistant, port 1883 and a user of that broker. The default topic
-`wmbusmeters/#` covers this layout. If you also use the "MQTT Discovery"
-integration of Gladys with the Home Assistant discovery of the add-on turned
-on, your meters show up twice: add each one once.
+`wmbusmeters/#` covers this layout. If the MQTT discovery of the add-on is
+also on, your meters also show up in the Discovery tab of the Gladys MQTT
+integration (see above): add each one once.
 
 ## 3. Find your meters
 

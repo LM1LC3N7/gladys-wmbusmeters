@@ -63,6 +63,25 @@ déclare quand wmbusmeters ajoute le détail des champs
 vue. Les drapeaux qui parlent du passé (`PREV_LEAKAGE`, `..._PREV_MONTH`…) ne
 sont pas des alarmes : ils restent dans le texte de l'état.
 
+### Et la découverte Home Assistant de l'intégration MQTT de Gladys ?
+
+Depuis Gladys 4.86, l'intégration MQTT de Gladys (onglet **Découverte**) lit
+la découverte Home Assistant. wmbusmeters lui-même n'en publie pas : seul son
+add-on Home Assistant le fait, si vous activez `enable_mqtt_discovery`. Avec
+l'add-on, c'est une alternative sans cette intégration, mais partielle :
+l'énergie, la puissance, les températures, la batterie et le signal passent
+bien ; les volumes (m³) et les débits (m³/h) arrivent comme des capteurs
+génériques sans unité ; et les alarmes de l'add-on (un capteur par drapeau,
+désactivé par défaut) reposent sur un modèle Jinja que Gladys n'exécute pas,
+elles ne s'allument donc jamais.
+
+Cette intégration lit directement le JSON de wmbusmeters, avec ou sans
+add-on et sans découverte : le volume et l'énergie en index, les alarmes de
+fuite, de rupture, de compteur à sec, de retour d'eau, de fraude et de pile,
+le diagnostic des compteurs chiffrés sans clé, très courants en France, et
+l'avertissement d'un compteur muet. N'utilisez qu'une des deux voies pour un
+même compteur : sinon il apparaît deux fois.
+
 ## 1. Le récepteur
 
 - Une **clé RTL-SDR** (RTL-SDR Blog V3 ou V4, Nooelec…, environ 25 €) : le
@@ -130,9 +149,10 @@ dans `/etc/wmbusmeters.conf`, fichiers de compteurs dans
 L'add-on publie déjà chaque relevé sur `wmbusmeters/<nom du compteur>`, sur
 le broker Mosquitto de Home Assistant : donnez à l'intégration l'adresse IP de
 Home Assistant, le port 1883 et un utilisateur de ce broker. Le topic par
-défaut `wmbusmeters/#` couvre ce format. Si vous utilisez aussi l'intégration
-« MQTT Discovery » de Gladys avec la découverte Home Assistant de l'add-on
-activée, vos compteurs apparaîtront deux fois : n'ajoutez chacun qu'une fois.
+défaut `wmbusmeters/#` couvre ce format. Si la découverte MQTT de l'add-on
+est aussi activée, vos compteurs apparaissent en plus dans l'onglet
+Découverte de l'intégration MQTT de Gladys (voir plus haut) : n'ajoutez
+chacun qu'une fois.
 
 ## 3. Trouver vos compteurs
 

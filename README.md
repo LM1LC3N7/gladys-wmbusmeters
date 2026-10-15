@@ -67,14 +67,22 @@ Gladys ⇄ SDK ⇄ src/handlers.js ⇄ src/app.js (WmbusApp) ⇄ src/mqtt.js ---
 wmbusmeters itself publishes no discovery: only its Home Assistant add-on
 does, when `enable_mqtt_discovery` is on (stable: hand-written templates for
 about 40 drivers; edge: generated from every driver with
-`addtelegramdetails`). With it, [gladys-mqtt-discovery](https://github.com/LM1LC3N7/gladys-mqtt-discovery)
-already shows the add-on's meters. This integration adds: every wmbusmeters
-install (Docker, Raspberry Pi, snap) and every driver, without Home
-Assistant; Gladys-native features (a volume index in m³, energy indexes for
-the Gladys energy views, power in W, flow); the status flags turned into leak,
-burst, dry, backflow, tamper and battery-low alarms usable in scenes; the
-silent-meter badge; the missing-key diagnosis; the throttling of chatty
-meters; one device per meter id that survives a driver change.
+`addtelegramdetails`). The Gladys core MQTT integration reads the Home
+Assistant discovery since Gladys 4.86 (Discovery tab), so it already shows the
+add-on's meters, partially (read in `server/services/mqtt/lib/homeAssistant`
+of the core, not run): energy, power, temperatures, battery and signal map
+well; `m³` and `m³/h` are not in its unit table, so volumes and flows become
+generic "unknown" sensors; the add-on's per-flag binary sensors (disabled by
+default) use a Jinja test (`"LEAK" in value_json.status.split()`) the core
+does not evaluate (it only extracts `value_json.<field>`), so they never turn
+on. This integration adds: plain wmbusmeters JSON, from every install
+(Docker, Raspberry Pi, snap, the add-on) and every driver, without any
+discovery; a meter-specific mapping (volume and energy as indexes, power in
+W, flow, billing-date values); the status flags turned into leak, burst, dry,
+backflow, tamper and battery-low alarms usable in scenes; the diagnosis of
+encrypted meters without their key (most French remotely read water meters);
+the silent-meter badge; the throttling of chatty meters; one device per meter
+id that survives a driver change.
 
 ## Development
 

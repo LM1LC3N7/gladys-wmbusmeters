@@ -68,9 +68,15 @@ up to date at the end of every milestone.
 - **Home Assistant discovery**: only the add-on publishes it, opt-in
   (`enable_mqtt_discovery`): hand-written templates for ~40 drivers in the
   stable add-on, generated from every driver with `addtelegramdetails` in the
-  edge one. gladys-mqtt-discovery covers those users; this module serves every
-  install, maps to Gladys-native features and adds the alarms, the badge,
-  the key diagnosis and the throttling. The docs warn about duplicates.
+  edge one. The Gladys core MQTT integration reads that discovery since
+  Gladys 4.86 (GladysAssistant/Gladys#2805), and the docs present it as the
+  alternative, with its limits read in the core code: no `m³`/`m³/h` units
+  (volumes and flows become "unknown" sensors), no Jinja (the add-on's
+  per-flag alarm sensors never turn on). This module serves every install
+  without discovery, maps to meter-specific features (indexes, alarms) and
+  adds the badge, the key diagnosis and the throttling. The docs warn about
+  duplicates. gladys-mqtt-discovery, withdrawn from the store, is not
+  mentioned.
 - **Identity = the meter id**, lowercase, nothing else: the driver changes
   (izar → izarv2, auto → named) and the meter file name is the user's. Two
   meter files on the same id would merge (accepted: wmbusmeters warns
