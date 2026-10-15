@@ -1,67 +1,272 @@
-# Template de démonstration
+# Compteurs wM-Bus (wmbusmeters)
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+[wmbusmeters](https://github.com/wmbusmeters/wmbusmeters) lit les **compteurs
+radio wireless M-Bus** (868 MHz) : compteurs d'eau (Sensus iPERL, Diehl Izar
+et Hydrus, Kamstrup Multical 21 et flowIQ, Itron, Apator, Techem…), compteurs
+de chaleur (Diehl Sharky, Kamstrup Multical 302 à 803…), de gaz et
+d'électricité, répartiteurs de frais de chauffage (Qundis Q caloric…). Cette
+intégration lit ce que wmbusmeters décode et propose chaque compteur dans
+l'onglet **Découverte** de Gladys : index de consommation, débit,
+températures, état, et alarmes de fuite, de rupture, de compteur à sec, de
+retour d'eau, de fraude et de pile faible. Sans lien avec le projet
+wmbusmeters.
+
+> **Version de développement (0.1).** Testée contre le vrai wmbusmeters
+> (image Docker officielle, versions 3.0.0 et de développement) rejouant des
+> trames de sa suite de tests, avec un vrai broker Mosquitto, mais pas encore
+> avec un vrai récepteur radio. Vos retours sont les bienvenus sur le dépôt
+> GitHub.
+
+## Principe
+
+Le récepteur radio **ne se branche pas sur Gladys** : les intégrations n'ont
+pas accès à l'USB. wmbusmeters tourne **à côté du récepteur** (sur la machine
+Gladys dans son propre conteneur, sur un Raspberry Pi mieux placé près des
+compteurs, ou en add-on Home Assistant), décode les trames et, grâce à sa
+ligne `shell=`, publie chaque relevé en JSON sur votre **broker MQTT**.
+L'intégration lit ce broker.
+
+```
+compteurs ))) récepteur -> wmbusmeters -> mosquitto_pub -> broker MQTT -> intégration -> Gladys
+```
 
 ## Ce que vous obtenez
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+| Champ wmbusmeters                                        | Dans Gladys                                                     |
+| -------------------------------------------------------- | --------------------------------------------------------------- |
+| `total_m3`, `total_volume_m3`                            | volume (m³) : l'index du compteur                               |
+| `target_m3`                                              | volume à la date de relève (fin du mois ou de l'année passés)   |
+| `total_backward_m3`                                      | volume passé à l'envers                                         |
+| `total_energy_consumption_kwh`, `total_kwh`              | index d'énergie (kWh) : compteurs de chaleur et d'électricité   |
+| `total_energy_production_kwh`                            | index d'énergie produite (kWh)                                  |
+| `current_power_consumption_kw`, `power_kw`               | puissance (convertie en W)                                      |
+| `volume_flow_m3h`, `flow_m3h`, `max_flow_m3h`            | débit, débit max (m³/h)                                         |
+| `flow_temperature_c`, `return_temperature_c`             | températures aller et retour (sondes, hors moyenne de la pièce) |
+| `current_consumption_hca`, `consumption_at_set_date_hca` | unités de répartition de chauffage                              |
+| `current_temperature_c`, `current_relative_humidity_rh`  | température et humidité (capteurs d'ambiance)                   |
+| `voltage_at_phase_1_v`…                                  | tension par phase (compteurs électriques)                       |
+| `battery_pct`, `remaining_battery_life_y`                | batterie (%), durée de vie de la pile (années)                  |
+| `rssi_dbm`                                               | signal (barres), quand le récepteur le donne                    |
+| `status`, `current_status`                               | **État** (texte : `OK`, `LEAK`, `ERROR POWER_LOW`…)             |
+| drapeaux de l'état                                       | alarmes : fuite, rupture, à sec, retour d'eau, fraude, pile     |
 
-## Configuration
+Un appareil = un numéro de compteur (les 8 chiffres imprimés sur le
+compteur), quel que soit le pilote ou le nom donné dans wmbusmeters. Les
+historiques (12 mois, dates de relève intermédiaires) ne sont pas repris :
+Gladys garde lui-même l'historique de chaque valeur.
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+Les **alarmes** que le compteur sait lever sont proposées dès le premier
+relevé, avant toute alarme : celles de son pilote wmbusmeters, et celles qu'il
+déclare quand wmbusmeters ajoute le détail des champs
+(`addtelegramdetails=first`, réglage par défaut de l'add-on Home Assistant
+« edge »). Une alarme jamais annoncée apparaît la première fois qu'elle est
+vue. Les drapeaux qui parlent du passé (`PREV_LEAKAGE`, `..._PREV_MONTH`…) ne
+sont pas des alarmes : ils restent dans le texte de l'état.
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+## 1. Le récepteur
 
-## Actions
+- Une **clé RTL-SDR** (RTL-SDR Blog V3 ou V4, Nooelec…, environ 25 €) : le
+  plus simple. L'image Docker de wmbusmeters contient `rtl_wmbus`, qui écoute
+  les modes T1 et C1.
+- Ou un **module wM-Bus** dédié, plus sensible : IMST iM871A / iU891A, Amber
+  AMB8465 (Würth Metis), Radiocrafts RC1180, CUL.
+- Placez l'antenne près des compteurs (un compteur d'eau dans un regard
+  enterré porte peu loin). Une clé RTL-SDR déjà utilisée par rtl_433 ne peut
+  pas servir à wmbusmeters en même temps : prévoyez une clé par logiciel.
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+## 2. Lancer wmbusmeters et le faire publier sur MQTT
+
+wmbusmeters n'a pas de client MQTT intégré : sa ligne `shell=` lance une
+commande à chaque relevé, avec le JSON du relevé dans `$METER_JSON`.
+`mosquitto_pub` (fourni dans l'image Docker officielle) l'envoie au broker.
+
+### Avec Docker
+
+Créez le dossier de configuration, par exemple `/opt/wmbusmeters`, avec le
+fichier `/opt/wmbusmeters/etc/wmbusmeters.conf` (remplacez l'adresse du
+broker, l'utilisateur et le mot de passe) :
+
+```ini
+loglevel=normal
+device=auto:t1
+donotprobe=/dev/ttyAMA0
+logtelegrams=false
+format=json
+ignoreduplicates=true
+shell=/usr/bin/mosquitto_pub -h 192.168.1.10 -u UTILISATEUR -P MOTDEPASSE -t wmbusmeters/$METER_ID -m "$METER_JSON"
+```
+
+puis lancez l'image officielle :
+
+```bash
+docker run -d --name wmbusmeters --restart unless-stopped --privileged \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /opt/wmbusmeters:/wmbusmeters_data \
+  -v /dev/:/dev/ \
+  wmbusmeters/wmbusmeters
+```
+
+- Avec un module série (iM871A, AMB8465…) plutôt qu'une clé RTL-SDR, le mode
+  privilégié n'est pas nécessaire : remplacez `--privileged -v /dev/:/dev/`
+  par `--device /dev/ttyUSB0`, et `device=auto:t1` par le module, par exemple
+  `device=/dev/ttyUSB0:im871a:c1,t1`.
+- Avec une clé RTL-SDR, `device=rtlwmbus` évite de chercher des modules série
+  au démarrage.
+- Sans utilisateur sur le broker, retirez `-u … -P …`.
+- Le broker peut être celui de l'intégration MQTT de Gladys (port 1883,
+  l'utilisateur et le mot de passe de sa configuration) ou le vôtre
+  (Mosquitto…).
+
+### Sans Docker
+
+wmbusmeters se compile sur un Raspberry Pi (`./configure && make && sudo make
+install`, voir son README) et tourne alors en service : même configuration
+dans `/etc/wmbusmeters.conf`, fichiers de compteurs dans
+`/etc/wmbusmeters.d/`, `sudo apt install mosquitto-clients` pour
+`mosquitto_pub`, puis `sudo systemctl restart wmbusmeters`.
+
+### Avec l'add-on Home Assistant
+
+L'add-on publie déjà chaque relevé sur `wmbusmeters/<nom du compteur>`, sur
+le broker Mosquitto de Home Assistant : donnez à l'intégration l'adresse IP de
+Home Assistant, le port 1883 et un utilisateur de ce broker. Le topic par
+défaut `wmbusmeters/#` couvre ce format. Si vous utilisez aussi l'intégration
+« MQTT Discovery » de Gladys avec la découverte Home Assistant de l'add-on
+activée, vos compteurs apparaîtront deux fois : n'ajoutez chacun qu'une fois.
+
+## 3. Trouver vos compteurs
+
+wmbusmeters ne publie **que les compteurs de ses fichiers de compteurs**.
+Regardez d'abord ce qu'il entend : `docker logs -f wmbusmeters` affiche pour
+chaque compteur à portée
+
+```
+Received telegram from: 12345678
+          manufacturer: (SEN) Sensus Metering Systems, Germany (0x4cae)
+                  type: Water meter (0x07) encrypted
+                driver: iperl
+```
+
+Le numéro (`12345678`) est imprimé sur votre compteur. Créez un fichier par
+compteur dans `/opt/wmbusmeters/etc/wmbusmeters.d/`, par exemple `EauFroide` :
+
+```ini
+name=EauFroide
+id=12345678
+driver=iperl
+key=00112233445566778899AABBCCDDEEFF
+```
+
+Retirez la ligne `key=` si le compteur n'est pas chiffré, puis
+`docker restart wmbusmeters`. N'utilisez `driver=auto` que pour essayer :
+wmbusmeters garantit que les champs d'un pilote nommé ne changent pas d'une
+version à l'autre.
+
+## 4. Les clés de chiffrement
+
+**Beaucoup de compteurs d'eau sont chiffrés** (AES) : sans la clé,
+wmbusmeters ne lit que le numéro du compteur. En France, la clé d'un compteur
+télérelevé appartient au service des eaux (ou au syndic pour les compteurs
+divisionnaires d'un immeuble) : demandez-la en donnant le numéro du compteur.
+Certains la donnent, d'autres non. Une clé fait 32 caractères hexadécimaux.
+
+- Les **Diehl Izar** (Sappel), très répandus, se lisent sans clé
+  (`driver=izarv2`).
+- Sans clé, le relevé arrive avec l'état `MISSING_KEY` : le bouton « Lister
+  les compteurs entendus » le signale.
+- Avec une **mauvaise clé**, wmbusmeters écrit dans son journal « did you use
+  the correct decryption key? » et **ignore ensuite ce compteur** : rien
+  n'arrive à Gladys. Corrigez la clé et redémarrez wmbusmeters.
+- Les compteurs de gaz Gazpar (169 MHz) ne sont pas lisibles : GRDF ne
+  communique pas leurs clés.
+
+## 5. Configurer l'intégration
+
+1. **Adresse du broker MQTT** : vue depuis la machine Gladys, son adresse IP
+   sur le réseau local, pas `localhost` (l'intégration tourne dans son propre
+   conteneur). Exemples : `mqtt://192.168.1.10:1883`,
+   `mqtts://broker.lan:8883`.
+2. **Utilisateur** et **mot de passe** du broker, s'il en demande.
+3. **Topic MQTT de wmbusmeters** : gardez `wmbusmeters/#`, qui couvre
+   `wmbusmeters/<numéro>` (la configuration ci-dessus) comme
+   `wmbusmeters/<nom>` (l'add-on).
+4. Cliquez sur **Tester la connexion** : l'intégration attend le premier
+   relevé (jusqu'à 30 s ; un relevé conservé par le broker avec `-r` arrive
+   tout de suite) et indique le compteur entendu.
+
+## 6. Ajouter vos compteurs
+
+Ouvrez l'onglet **Découverte** : chaque compteur publié par wmbusmeters y
+apparaît, nommé d'après son fichier, son pilote et son numéro
+(`EauFroide (iperl 12345678)`). Le bouton **Lister les compteurs entendus**
+montre les derniers relevés, leurs valeurs, leur état et leur signal.
+
+Avec un fichier de compteur générique (`id=*`), wmbusmeters publie aussi les
+compteurs des voisins : n'ajoutez que les vôtres. Les autres ne coûtent rien
+(rien n'est envoyé à Gladys pour un appareil non ajouté) et quittent la liste
+après 4 jours de silence.
 
 ## Scènes
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
+Toutes les fonctionnalités servent dans le déclencheur « Changement d'état
+d'un appareil » : par exemple **Leak alarm** (alarme de fuite) passe à 1 →
+notification, ou **Volume** qui augmente la nuit. Les alarmes et l'état ne
+sont jamais retardés ; une alarme repasse à 0 au premier relevé qui ne la
+porte plus.
 
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+## Options
 
-## Tableau de bord
+| Option                                | Par défaut      | Rôle                                                                 |
+| ------------------------------------- | --------------- | -------------------------------------------------------------------- |
+| Topic MQTT de wmbusmeters             | `wmbusmeters/#` | à changer seulement si votre `shell=` publie ailleurs                |
+| Vérifier le certificat TLS            | oui             | à désactiver pour un broker au certificat auto-signé de votre réseau |
+| Intervalle minimum entre deux relevés | 60 s            | un compteur qui émet toutes les 8 s n'est enregistré qu'à ce rythme  |
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+**Compteurs bavards** : un Izar émet toutes les 8 s, un iPERL toutes les
+16 s. wmbusmeters n'a pas de limite de débit : il publie chaque trame
+(`ignoreduplicates=true` écarte seulement les répétitions d'une même trame).
+L'intégration garde la dernière valeur de chaque compteur et ne l'enregistre
+qu'à l'intervalle choisi, n'envoie que les valeurs qui changent (une valeur
+stable est renvoyée toutes les 30 min) et reste sous les 300 états par minute
+que Gladys accepte.
+
+## Fonctionnement
+
+- Les messages lus sont les objets JSON de wmbusmeters (`"_":"telegram"`, un
+  numéro et un pilote) ; tout autre message du topic est ignoré. wmbusmeters
+  3.0 et avant (champ `meter` au lieu de `driver`) fonctionnent aussi.
+- Un même relevé reçu deux fois (deux topics, un message conservé rejoué à la
+  reconnexion) ne compte qu'une fois. Un relevé conservé (`-r`) compte pour
+  l'heure à laquelle wmbusmeters l'a reçu, pas pour maintenant.
+- Le badge d'un appareil ajouté passe à « injoignable » quand le broker est
+  coupé, et en état dégradé (point orange, avec la raison) quand le compteur
+  n'a rien envoyé depuis 25 h : hors de portée, pile épuisée, ou compteur qui
+  n'émet qu'à certaines heures (certains compteurs relevés en passant dans la
+  rue sont réglés ainsi).
+- L'index d'énergie d'un compteur de chaleur mesure de la chaleur, pas de
+  l'électricité : ne le rattachez pas à votre compteur électrique dans le
+  suivi de l'énergie de Gladys.
+- Les valeurs aberrantes (sonde débranchée à -100 °C…) sont ignorées.
 
 ## Dépannage
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- **« Aucun relevé wmbusmeters »** au test : `docker logs wmbusmeters`.
+  « Received telegram from » sans relevé publié : le compteur n'a pas de
+  fichier de compteur. Rien du tout : vérifiez le récepteur, le mode (`t1`,
+  `c1`) et la portée. Testez l'envoi à la main :
+  `docker exec wmbusmeters mosquitto_pub -h 192.168.1.10 -t wmbusmeters/test -m '{}'`.
+- **« Le broker MQTT est injoignable »** : vérifiez l'adresse IP et le port,
+  et que le broker accepte les connexions du réseau local (`listener 1883`
+  dans Mosquitto 2).
+- **« a refusé la connexion »** : utilisateur ou mot de passe incorrect, ou
+  ACL qui interdit la lecture de `wmbusmeters/#`.
+- **Un compteur n'a que son état** : `MISSING_KEY`, voir les clés ci-dessus.
+- **Une valeur manque** : ouvrez une issue avec le JSON du relevé
+  (`mosquitto_sub -h 192.168.1.10 -t 'wmbusmeters/#' -v`).
+
+## Confidentialité
+
+Tout reste sur votre réseau : l'intégration ne parle qu'à votre broker MQTT.
+Le mot de passe est stocké comme secret par Gladys et n'apparaît jamais dans
+les logs. Les clés de vos compteurs restent dans wmbusmeters : l'intégration
+ne les voit jamais.

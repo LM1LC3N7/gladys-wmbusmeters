@@ -1,33 +1,51 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeConfig, DEFAULT_CONFIG } from '../src/config.js';
+import { DEFAULTS, normalizeConfig, normalizeTopic, parseServerUrl } from '../src/config.js';
+import { METER_INTERVAL } from '../src/constants.js';
 
-test('normalizeConfig returns the defaults when called with no argument', () => {
-  assert.deepEqual(normalizeConfig(), DEFAULT_CONFIG);
+test('the broker address', () => {
+  assert.deepEqual(parseServerUrl('192.168.1.10'), { url: 'mqtt://192.168.1.10' });
+  assert.deepEqual(parseServerUrl(' mqtts://broker.lan:8883 '), { url: 'mqtts://broker.lan:8883' });
+  assert.deepEqual(parseServerUrl('ws://10.0.0.2:9001/mqtt'), { url: 'ws://10.0.0.2:9001/mqtt' });
+  assert.deepEqual(parseServerUrl(''), { error: 'empty' });
+  assert.deepEqual(parseServerUrl('http://192.168.1.20'), { error: 'invalid' });
+  assert.deepEqual(parseServerUrl('mqtt://'), { error: 'invalid' });
+  assert.deepEqual(parseServerUrl('mqtt://u:p@host'), { error: 'credentials' });
 });
 
-test('normalizeConfig keeps user values over the defaults', () => {
-  const config = normalizeConfig({ latitude: 45.5, longitude: -73.6, unit: 'fahrenheit' });
-  assert.equal(config.latitude, 45.5);
-  assert.equal(config.longitude, -73.6);
-  assert.equal(config.unit, 'fahrenheit');
+test('the topic filter', () => {
+  assert.equal(normalizeTopic('wmbusmeters/+'), 'wmbusmeters/+');
+  assert.equal(normalizeTopic(' wmbusmeters/# '), 'wmbusmeters/#');
+  assert.equal(normalizeTopic('#'), '#');
+  for (const bad of ['', 'wmbusmeters/#/x', 'wmbusmeters/a+', 'meters#', null]) {
+    assert.equal(normalizeTopic(bad), DEFAULTS.topic, String(bad));
+  }
 });
 
-test('normalizeConfig coerces numeric strings coming from a form', () => {
-  const config = normalizeConfig({ latitude: '48.8', longitude: '2.3', poll_frequency: '600' });
-  assert.equal(config.latitude, 48.8);
-  assert.equal(config.longitude, 2.3);
-  assert.equal(config.poll_frequency, 600);
-  assert.equal(typeof config.poll_frequency, 'number');
-});
-
-test('normalizeConfig falls back to the default for a missing numeric field', () => {
-  const config = normalizeConfig({ unit: 'celsius' });
-  assert.equal(config.poll_frequency, DEFAULT_CONFIG.poll_frequency);
-});
-
-test('GLADYS_PREFER_LOCAL defaults to true and only an explicit false disables it', () => {
-  assert.equal(normalizeConfig().GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: true }).GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: false }).GLADYS_PREFER_LOCAL, false);
+test('the configuration, normalized', () => {
+  assert.deepEqual(normalizeConfig(), {
+    url: undefined,
+    urlError: 'empty',
+    username: '',
+    password: '',
+    topic: 'wmbusmeters/#',
+    verifyCertificate: true,
+    meterInterval: METER_INTERVAL.default,
+  });
+  const c = normalizeConfig({
+    server_url: '10.0.0.5',
+    username: ' me ',
+    password: ' s3cret ',
+    topic: null,
+    verify_certificate: false,
+    meter_interval: '99999',
+  });
+  assert.equal(c.url, 'mqtt://10.0.0.5');
+  assert.equal(c.username, 'me');
+  assert.equal(c.password, ' s3cret ', 'a password is never trimmed');
+  assert.equal(c.topic, 'wmbusmeters/#');
+  assert.equal(c.verifyCertificate, false);
+  assert.equal(c.meterInterval, METER_INTERVAL.max);
+  assert.equal(normalizeConfig({ meter_interval: 'abc' }).meterInterval, 60);
+  assert.equal(normalizeConfig({ meter_interval: -5 }).meterInterval, 0);
 });

@@ -12,44 +12,32 @@ the notes of the version's GitHub Release.
 
 ### Added
 
-- A working example of scene triggers, scene actions and dashboard widgets
-  (Gladys 5.1.0 or later).
-- `CHANGELOG.md`, rolled by the Release workflow.
-- A GitHub Release for every version, with its changelog section as notes: the
-  Gladys Supervision page links each version to the repository's releases.
-- CI runs the tests on Node 22 and 24, and builds the Docker image.
-- Dependabot keeps the npm dependencies and the GitHub Actions up to date.
-- `SECURITY.md` (how to report a vulnerability) and `CLAUDE.md` (project rules
-  for contributors and coding assistants).
-- Manifest tests: `version` matches `package.json`, `docker_image` is tagged
-  with it, descriptions hold 10 to 100 characters, placeholders are
-  multi-language objects.
-- The latitude and longitude fields show an example value as placeholder.
+- Reading wmbusmeters from the user's MQTT broker (mqtt, mqtts, ws, wss; user
+  name and password; TLS verification can be turned off for a self-signed
+  broker), on a configurable topic filter (`wmbusmeters/#` by default: the
+  `wmbusmeters/<meter id>` of the guide and the `wmbusmeters/<meter name>` of
+  the Home Assistant add-on). wmbusmeters 3.0 and older (`meter` instead of
+  `driver`) and the details of `addtelegramdetails` are understood.
+- One Discovery device per meter id, named after the meter file, its driver
+  and its id; the meters silent for 4 days leave the list.
+- Volume indexes and volumes at the billing date (m³), energy indexes (heat
+  and electricity, production apart), energy at the billing date, power (W),
+  flow and max flow (m³/h), flow, return and supply temperatures, heat cost
+  allocation units, room temperature and humidity, voltage and current per
+  phase, battery and battery life, radio signal. Histories, per-tariff totals
+  and implausible values are left out.
+- The status as a text feature, and binary alarms from its flags: leak,
+  burst, dry meter, backflow, tamper, battery low. The alarms a meter can
+  raise are offered before the first one, from its driver (a table generated
+  from the wmbusmeters driver definitions) and from the flags it declares.
+- Encrypted meters without their key (`MISSING_KEY`) and undecodable
+  telegrams (`FAILED_DECODE`) pointed out in the logs and by the list button.
+- The last values heard sent when a device is added; readings throttled to a
+  configurable interval (60 s), the status and alarms never delayed, all
+  states within the Gladys rate limit; a reading received twice counts once,
+  a retained one for the time it was received.
+- The transport badge: unreachable while the broker is down, degraded with
+  the reason when a meter has been silent for 25 hours.
+- "Test the connection" and "List the meters heard" buttons.
 
-### Changed
-
-- Node.js 22 or later is required (Node 20 is end-of-life).
-- Integration SDK 0.15.0. The tests now run against the fake Gladys of the
-  SDK, which refuses the payloads Gladys refuses.
-- The refresh interval is one minute minimum, the fastest Gladys polls a
-  device. The plug's power is only sent when it changes, and every 30
-  minutes otherwise.
-
-### Fixed
-
-- Gladys refused the devices of the Discovery tab: the weather station and
-  the plug declared their poll frequency in seconds instead of one of the
-  values Gladys accepts, and were never polled. They now poll every minute,
-  and the readings follow the refresh interval of the configuration.
-
-- The release commit no longer fails `npm run format:check`: the Release
-  workflow updates the manifest `version` and `docker_image` in place instead
-  of re-printing the whole file with `jq`.
-- The integration can write to `/data`: the image creates the directory owned
-  by the `node` user, a new Docker volume was owned by root.
-- A sub-container running the integration's own image follows it to the new
-  tag at each release, as well as in the manifest of the build summary: it kept
-  the previous tag, which may not exist on the registry. Sub-containers on a
-  third-party image (a broker, a database...) keep theirs.
-
-[Unreleased]: https://github.com/GladysAssistant/integration-template-js/commits/main
+[Unreleased]: https://github.com/LM1LC3N7/gladys-wmbusmeters/commits/main

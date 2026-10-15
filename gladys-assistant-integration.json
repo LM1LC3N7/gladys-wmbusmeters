@@ -1,177 +1,131 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "wM-Bus meters (wmbusmeters)",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Water, heat, gas and electricity meters over wireless M-Bus, read by wmbusmeters via MQTT.",
+    "fr": "Compteurs d'eau, de chaleur, de gaz et d'électricité wM-Bus, lus par wmbusmeters via MQTT."
   },
-  "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-wmbusmeters:0.1.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-wmbusmeters/main/cover.png",
+  "categories": ["energy", "protocols"],
+  "transports": ["local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your radio meters, through wmbusmeters",
+        "fr": "Vos compteurs radio, grâce à wmbusmeters"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "wmbusmeters decodes the radio telegrams of wireless M-Bus meters (868 MHz): water meters (Sensus iPERL, Diehl Izar and Hydrus, Kamstrup Multical 21 and flowIQ, Itron, Apator…), heat, gas and electricity meters, heat cost allocators. It runs next to its radio receiver (RTL-SDR dongle, iM871A, AMB8465…) on a Raspberry Pi, a NAS or as the Home Assistant add-on: the receiver is not plugged into Gladys. Its shell= line publishes each reading to your MQTT broker (the guide gives it). This integration reads it, offers each meter in the Discovery tab and turns its leak, burst and battery flags into alarms. Many meters are encrypted: wmbusmeters needs their key, which your water company gives. Type the address of the broker as seen from the Gladys machine: its LAN IP address, not localhost. Not affiliated with the wmbusmeters project.",
+        "fr": "wmbusmeters décode les trames radio des compteurs wireless M-Bus (868 MHz) : compteurs d'eau (Sensus iPERL, Diehl Izar et Hydrus, Kamstrup Multical 21 et flowIQ, Itron, Apator…), de chaleur, de gaz et d'électricité, répartiteurs de frais de chauffage. Il tourne à côté de son récepteur radio (clé RTL-SDR, iM871A, AMB8465…) sur un Raspberry Pi, un NAS ou en add-on Home Assistant : le récepteur ne se branche pas sur Gladys. Sa ligne shell= publie chaque relevé sur votre broker MQTT (le guide la donne). Cette intégration le lit, propose chaque compteur dans Découverte et transforme ses indicateurs de fuite, de rupture et de pile en alarmes. Beaucoup de compteurs sont chiffrés : wmbusmeters a besoin de leur clé, fournie par votre service des eaux. Saisissez l'adresse du broker vue depuis la machine Gladys : son IP sur le réseau local, pas localhost. Sans lien avec le projet wmbusmeters."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/LM1LC3N7/gladys-wmbusmeters/blob/main/docs/fr.md",
+          "label": { "en": "Guide (French)", "fr": "Guide (français)" }
+        },
+        {
+          "url": "https://github.com/LM1LC3N7/gladys-wmbusmeters/blob/main/docs/en.md",
+          "label": { "en": "Guide (English)", "fr": "Guide (anglais)" }
+        },
+        {
+          "url": "https://github.com/wmbusmeters/wmbusmeters",
+          "label": {
+            "en": "wmbusmeters and its supported meters",
+            "fr": "wmbusmeters et ses compteurs compatibles"
+          }
+        },
+        {
+          "url": "https://hub.docker.com/r/wmbusmeters/wmbusmeters",
+          "label": { "en": "The wmbusmeters Docker image", "fr": "L'image Docker de wmbusmeters" }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
+      "key": "server_url",
+      "type": "string",
+      "label": { "en": "Address of the MQTT broker", "fr": "Adresse du broker MQTT" },
       "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+        "en": "mqtt://host:1883 or mqtts://host:8883: the broker the mosquitto_pub of wmbusmeters publishes to. A bare IP address means mqtt:// on port 1883.",
+        "fr": "mqtt://hôte:1883 ou mqtts://hôte:8883 : le broker sur lequel publie le mosquitto_pub de wmbusmeters. Une adresse IP seule vaut mqtt:// sur le port 1883."
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "placeholder": { "en": "mqtt://192.168.1.10:1883", "fr": "mqtt://192.168.1.10:1883" },
+      "required": true
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "key": "username",
+      "type": "string",
+      "label": { "en": "User name", "fr": "Utilisateur" },
+      "placeholder": {
+        "en": "Leave empty for an anonymous broker",
+        "fr": "Laissez vide pour un broker anonyme"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "required": false
     },
     {
-      "key": "unit",
-      "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "key": "password",
+      "type": "secret",
+      "label": { "en": "Password", "fr": "Mot de passe" },
+      "required": false
+    },
+    {
+      "key": "topic",
+      "type": "string",
+      "label": { "en": "MQTT topic of wmbusmeters", "fr": "Topic MQTT de wmbusmeters" },
+      "description": {
+        "en": "Where wmbusmeters publishes its readings. wmbusmeters/# covers wmbusmeters/<meter id> (the guide) and wmbusmeters/<meter name> (the Home Assistant add-on).",
+        "fr": "Là où wmbusmeters publie ses relevés. wmbusmeters/# couvre wmbusmeters/<numéro du compteur> (le guide) et wmbusmeters/<nom du compteur> (l'add-on Home Assistant)."
+      },
+      "placeholder": { "en": "wmbusmeters/#", "fr": "wmbusmeters/#" },
       "required": false,
-      "default": "celsius",
-      "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
-      ]
+      "default": "wmbusmeters/#"
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "verify_certificate",
+      "type": "boolean",
+      "label": {
+        "en": "Verify the TLS certificate of the broker (mqtts, wss)",
+        "fr": "Vérifier le certificat TLS du broker (mqtts, wss)"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Turn off only for a broker with a self-signed certificate on your local network.",
+        "fr": "À désactiver seulement pour un broker au certificat auto-signé sur votre réseau local."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
+      "default": true
+    },
+    {
+      "key": "meter_interval",
+      "type": "number",
+      "label": {
+        "en": "Minimum interval between two readings of a meter (s)",
+        "fr": "Intervalle minimum entre deux relevés d'un compteur (s)"
+      },
+      "description": {
+        "en": "Some meters transmit every 8 s: Gladys keeps their last reading at this pace. The status and the alarms are never delayed.",
+        "fr": "Certains compteurs émettent toutes les 8 s : Gladys garde leur dernier relevé à ce rythme. L'état et les alarmes ne sont jamais retardés."
+      },
+      "required": false,
+      "default": 60,
+      "min": 0,
       "max": 3600
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
+      "key": "test_connection",
+      "label": { "en": "Test the connection", "fr": "Tester la connexion" },
+      "timeout_seconds": 60
     },
     {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
-    }
-  ],
-  "scene_triggers": [
-    {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
-      "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
-      },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
-          "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
-          ]
-        }
-      ],
-      "variables": [
-        {
-          "key": "target",
-          "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
-        }
-      ]
-    }
-  ],
-  "scene_actions": [
-    {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
-      },
-      "timeout_seconds": 15,
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
-      "outputs": [
-        {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
-        }
-      ]
-    }
-  ],
-  "widgets": [
-    {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
-      },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "key": "list_meters",
+      "label": { "en": "List the meters heard", "fr": "Lister les compteurs entendus" },
+      "timeout_seconds": 10
     }
   ]
 }
