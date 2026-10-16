@@ -6,8 +6,8 @@
     "en": "Water, heat, gas and electricity meters over wireless M-Bus, read by wmbusmeters via MQTT.",
     "fr": "Compteurs d'eau, de chaleur, de gaz et d'électricité wM-Bus, lus par wmbusmeters via MQTT."
   },
-  "version": "0.1.0",
-  "docker_image": "ghcr.io/lm1lc3n7/gladys-wmbusmeters:0.1.0",
+  "version": "0.1.1",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-wmbusmeters:0.1.1",
   "gladys_version": ">=5.1.0",
   "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-wmbusmeters/main/cover.png",
   "categories": ["energy", "protocols"],

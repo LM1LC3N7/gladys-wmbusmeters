@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-16
+
 ### Added
 
 - Reading wmbusmeters from the user's MQTT broker (mqtt, mqtts, ws, wss; user
@@ -40,4 +42,5 @@ the notes of the version's GitHub Release.
   the reason when a meter has been silent for 25 hours.
 - "Test the connection" and "List the meters heard" buttons.
 
-[Unreleased]: https://github.com/LM1LC3N7/gladys-wmbusmeters/commits/main
+[Unreleased]: https://github.com/LM1LC3N7/gladys-wmbusmeters/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LM1LC3N7/gladys-wmbusmeters/releases/tag/v0.1.1

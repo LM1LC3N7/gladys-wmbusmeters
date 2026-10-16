@@ -1,6 +1,6 @@
 {
   "name": "gladys-wmbusmeters",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Gladys Assistant external integration for the wireless M-Bus water, heat, gas and electricity meters read by wmbusmeters, through MQTT.",
   "type": "module",
